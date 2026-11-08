@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: mosaic-ai
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/config
+    envVars:
+      - key: MESH_API_KEY
+        sync: false

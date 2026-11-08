@@ -1,0 +1,13 @@
+{
+  "name": "mesh-chat-hub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A multi-model AI chat interface powered by Mesh API",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f8f6">
+  <meta name="description" content="Explore AI models in one calm, thoughtfully designed chat workspace.">
+  <title>Mosaic - one place for ideas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#" aria-label="Mosaic home"><span class="brand-mark"><span></span><span></span><span></span><span></span></span><span>mosaic</span><sup>AI</sup></a>
+      <button class="new-chat-button" id="new-chat"><span class="plus-icon">&#65291;</span> New chat <kbd>Ctrl K</kbd></button>
+      <div class="sidebar-section-label">WORKSPACE</div>
+      <nav class="primary-nav" aria-label="Main navigation"><a href="#" class="nav-link active" data-nav="chat"><span class="nav-icon">&#9673;</span> Chat</a><a href="#models" class="nav-link" data-nav="models"><span class="nav-icon">&#9672;</span> Explore models <span class="nav-count" id="model-count">...</span></a></nav>
+      <div class="history-heading"><span class="sidebar-section-label">RECENTS</span><button class="icon-plain search-history" aria-label="Search history">&#9906;</button></div>
+      <div class="history-list" id="history-list"><div class="history-empty">Your conversations<br>will appear here.</div></div>
+      <div class="sidebar-bottom"><div class="upgrade-card"><div class="upgrade-flower">&#10035;</div><div><strong>Better answers, together</strong><span>Compare different models</span></div><span class="upgrade-arrow">&#8599;</span></div><button class="profile-button"><span class="avatar">Y</span><span class="profile-name">Your workspace</span><span class="profile-dots">&#183;&#183;&#183;</span></button></div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar"><div class="mobile-brand"><span class="brand-mark small"><span></span><span></span><span></span><span></span></span> mosaic</div><button class="model-trigger" id="model-trigger"><span class="provider-dot"></span><span id="current-model-name">Choose a model</span><span class="chevron">&#8964;</span></button><div class="topbar-right"><button class="header-link" id="share-button">&#8599; <span>Share</span></button><button class="avatar tiny">Y</button></div></header>
+
+      <div class="workspace">
+        <section class="welcome" id="welcome"><div class="greeting-kicker"><span class="greeting-star">&#10035;</span> A little more room to think</div><h1>One place for<br><span>what's on your mind.</span></h1><p class="welcome-description">Pick a model, bring a big question, or just start somewhere.<br>Good ideas tend to find their way.</p>
+          <div class="suggestion-grid"><button class="suggestion-card" data-prompt="Help me turn a rough idea into a clear plan"><span class="suggestion-icon lilac">&#8599;</span><span class="suggestion-title">Make an idea real</span><span class="suggestion-desc">Turn a rough thought into a clear plan.</span><span class="suggestion-corner">&#8599;</span></button><button class="suggestion-card" data-prompt="Explain a complicated topic in simple, everyday language"><span class="suggestion-icon peach">&#10035;</span><span class="suggestion-title">Make it make sense</span><span class="suggestion-desc">Untangle something you've been curious about.</span><span class="suggestion-corner">&#8599;</span></button><button class="suggestion-card" data-prompt="Help me write a thoughtful and engaging message about"><span class="suggestion-icon mint">&#8766;</span><span class="suggestion-title">Find the right words</span><span class="suggestion-desc">Write something that sounds like you.</span><span class="suggestion-corner">&#8599;</span></button><button class="suggestion-card" data-prompt="Give me three fresh, unexpected ideas for"><span class="suggestion-icon butter">&#10022;</span><span class="suggestion-title">Take a new angle</span><span class="suggestion-desc">Get unstuck with an unexpected perspective.</span><span class="suggestion-corner">&#8599;</span></button></div>
+        </section>
+        <section class="conversation" id="conversation" aria-live="polite"></section>
+        <section class="setup-notice hidden" id="setup-notice"><span class="notice-icon">&#10035;</span><div><strong>Connect your Mesh API account</strong><p>To enable AI chat for visitors, the site owner needs to add a Mesh API key to the server as <code>MESH_API_KEY</code>. The key stays private and is never sent to the browser.</p><a href="https://developers.meshapi.ai" target="_blank" rel="noreferrer">Learn about Mesh API &#8599;</a></div></section>
+        <div class="composer-wrap" id="composer-wrap"><form class="composer" id="chat-form"><textarea id="message-input" rows="1" placeholder="Ask anything. Start anywhere..." aria-label="Message Mosaic"></textarea><div class="composer-footer"><div class="composer-tools"><button type="button" class="tool-button attach-button" title="Attachments coming soon" aria-label="Attachments">&#65291;</button><span class="tool-divider"></span><button type="button" class="tool-button tools-button">&#10035; <span>Tools</span> <span class="tiny-down">&#8964;</span></button></div><div class="composer-submit-group"><span class="shortcut-hint">&#8629; <span>to send</span></span><button type="submit" class="send-button" id="send-button" aria-label="Send message">&#8593;</button></div></div></form><p class="disclaimer">AI can make mistakes. Check important info. <a href="#privacy">Your chats stay on this device.</a></p></div>
+      </div>
+      <aside class="ad-rail" aria-label="Sponsored content"><div class="ad-caption"><span>SPONSORED</span><span class="ad-info" title="Sponsored placements help keep Mosaic free">&#9432;</span></div><div class="ad-placeholder"><div class="ad-illustration"><span class="ad-spark">&#10035;</span><div class="ad-orb"></div><span class="ad-orb-small"></span></div><span class="ad-label">YOUR BRAND HERE</span><strong>A little space<br>for something good.</strong><span class="ad-description">Thoughtful tools, useful ideas, and products worth discovering.</span><a href="mailto:ads@example.com?subject=Mosaic%20advertising" class="ad-cta">Advertise with us <span>&#8599;</span></a></div><div class="ad-footnote">A small ad keeps this space open to everyone.</div></aside>
+    </main>
+  </div>
+  <div class="model-popover hidden" id="model-popover"><div class="popover-heading"><strong>Choose a model</strong><span>via Mesh API</span></div><label class="model-search-wrap"><span>&#9906;</span><input id="model-search" type="search" placeholder="Search models..."></label><div class="model-list" id="model-list"><div class="model-loading">Finding available models...</div></div><div class="model-popover-foot">Models and availability depend on your Mesh account.</div></div><div class="toast hidden" id="toast"></div>
+</body>
+</html>
