@@ -9,7 +9,7 @@ const modelList = $('#model-list');
 const searchInput = $('#model-search');
 const notice = $('#setup-notice');
 const historyList = $('#history-list');
-const state = { models: [], model: null, messages: [], conversations: [], sending: false, configured: false };
+const state = { models: [], model: null, messages: [], conversations: [], sending: false, configured: false, tools: { concise: false, steps: false }, attachment: null };
 
 function esc(value) {
   return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -61,6 +61,7 @@ function resetChat() {
   welcome.classList.remove('hidden');
   notice.classList.toggle('hidden', state.configured);
   input.value = '';
+  clearAttachment();
   resizeInput();
   input.focus();
 }
@@ -72,13 +73,19 @@ function renderModelList(filter = '') {
     modelList.innerHTML = `<div class="model-empty">${state.models.length ? 'No models match your search.' : 'No models are available.'}</div>`;
     return;
   }
-  modelList.innerHTML = models.map(model => `<button class="model-option ${state.model?.id === model.id ? 'selected' : ''}" data-model-id="${esc(model.id)}"><span class="model-provider-icon">${esc((model.brand || model.id.split('/')[0] || 'AI').slice(0, 2))}</span><span class="model-option-copy"><strong>${esc(model.name)}</strong><span>${esc(model.id)}</span></span>${model.is_free ? '<span class="model-badge">FREE</span>' : ''}</button>`).join('');
+  modelList.innerHTML = models.map(model => `<button class="model-option ${state.model?.id === model.id ? 'selected' : ''}" data-model-id="${esc(model.id)}"><span class="model-provider-icon">${esc((model.brand || model.name || 'AI').slice(0, 1))}</span><span>${esc(model.name)}</span>${model.is_free ? '<small>Free</small>' : ''}</button>`).join('');
   modelList.querySelectorAll('[data-model-id]').forEach(button => button.addEventListener('click', () => {
     state.model = state.models.find(model => model.id === button.dataset.modelId) || null;
     if (state.model) $('#current-model-name').textContent = state.model.name;
     modelPopover.classList.add('hidden');
     renderModelList(searchInput.value);
   }));
+}
+
+function modelPrice(model) {
+  if (model.is_free) return 0;
+  const values = [model.input_cost, model.prompt_price, model.input_price, model.price, model.cost].map(Number).filter(value => Number.isFinite(value) && value >= 0);
+  return values.length ? Math.min(...values) : Number.POSITIVE_INFINITY;
 }
 
 async function loadModels() {
@@ -89,9 +96,11 @@ async function loadModels() {
     notice.classList.toggle('hidden', state.configured);
     const data = await modelsResponse.json();
     if (!modelsResponse.ok) throw new Error(data.error || 'Unable to load models.');
-    state.models = data.models || [];
-    $('#model-count').textContent = state.models.length ? String(state.models.length) : '0';
-    state.model = state.models.find(model => model.is_free) || state.models[0] || null;
+    state.models = Array.isArray(data.models) ? data.models : [];
+    $('#model-count').textContent = String(state.models.length);
+    // Free models are the lowest-cost option; otherwise use pricing metadata when supplied.
+    const ranked = state.models.slice().sort((a, b) => modelPrice(a) - modelPrice(b) || a.name.localeCompare(b.name));
+    state.model = ranked[0] || null;
     if (state.model) $('#current-model-name').textContent = state.model.name;
     renderModelList();
   } catch (error) {
@@ -145,6 +154,19 @@ function appendRenderedMessage(message) {
   conversation.append(wrapper);
 }
 
+function buildRequestMessages() {
+  const messages = state.messages.filter(message => !message.pending).map(message => ({ role: message.role, content: message.content }));
+  const lastUser = [...messages].reverse().find(message => message.role === 'user');
+  if (lastUser) {
+    const additions = [];
+    if (state.tools.steps) additions.push('Please explain the answer step by step where appropriate.');
+    if (state.tools.concise) additions.push('Keep the answer concise.');
+    if (state.attachment) additions.push(`Attached file: ${state.attachment.name}\n\n${state.attachment.content}`);
+    if (additions.length) lastUser.content = `${lastUser.content}\n\n${additions.join('\n\n')}`;
+  }
+  return messages;
+}
+
 async function sendMessage(text) {
   if (state.sending) return;
   if (!state.model) {
@@ -162,7 +184,7 @@ async function sendMessage(text) {
   appendRenderedMessage(assistantMessage);
   const messageNode = conversation.lastElementChild;
   try {
-    const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: state.model.id, messages: state.messages.filter(message => !message.pending).map(({ role, content }) => ({ role, content })) }) });
+    const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: state.model.id, messages: buildRequestMessages() }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'The request failed. Please try again.');
     assistantMessage.content = typeof data.reply === 'string' ? data.reply : JSON.stringify(data.reply);
@@ -175,9 +197,12 @@ async function sendMessage(text) {
   } catch (error) {
     state.messages.pop();
     messageNode.remove();
-    showToast(error.message || 'Something went wrong. Please try again.');
+    if (error.message && /sign in/i.test(error.message)) showEmailSignIn();
+    else if (error.message && /free chats|renew|upgrade/i.test(error.message)) showUpgradeDialog(error.message);
+    else showToast(error.message || 'Something went wrong. Please try again.');
     if (!state.configured) notice.classList.remove('hidden');
   } finally {
+    clearAttachment();
     state.sending = false;
     $('#send-button').disabled = false;
     input.focus();
@@ -211,13 +236,93 @@ function showToast(message) {
   toastTimer = setTimeout(() => toast.classList.add('hidden'), 3200);
 }
 
+function clearAttachment() {
+  state.attachment = null;
+  const badge = document.querySelector('#attachment-badge');
+  if (badge) badge.remove();
+  const picker = document.querySelector('#attachment-picker');
+  if (picker) picker.value = '';
+}
+
+function showEmailSignIn() {
+  const email = prompt('Enter your email to sign in:');
+  if (!email) return;
+  fetch('/api/auth/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) })
+    .then(async response => { const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Could not sign in.'); return data; })
+    .then(() => showToast('Signed in. Send your message again.'))
+    .catch(error => showToast(error.message));
+}
+
+function showUpgradeDialog(message) {
+  if (!confirm(`${message}\n\nStart monthly renewal checkout?`)) return;
+  fetch('/api/payments/create', { method: 'POST' })
+    .then(async response => { const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Could not create checkout.'); return data; })
+    .then(data => { if (data.checkoutUrl) location.href = data.checkoutUrl; else showToast('Checkout is not available.'); })
+    .catch(error => showToast(error.message));
+}
+
+function setupComposerTools() {
+  const attachButton = $('.attach-button');
+  const toolsButton = $('.tools-button');
+  const composerTools = $('.composer-tools');
+  if (!composerTools) return;
+
+  const picker = document.createElement('input');
+  picker.type = 'file';
+  picker.id = 'attachment-picker';
+  picker.accept = '.txt,.md,.csv,.json,.log';
+  picker.hidden = true;
+  composerTools.append(picker);
+  picker.addEventListener('change', async () => {
+    const file = picker.files && picker.files[0];
+    if (!file) return;
+    if (file.size > 200_000) { showToast('Choose a text file smaller than 200 KB.'); picker.value = ''; return; }
+    try {
+      state.attachment = { name: file.name, content: await file.text() };
+      let badge = document.querySelector('#attachment-badge');
+      if (!badge) { badge = document.createElement('span'); badge.id = 'attachment-badge'; badge.className = 'attachment-badge'; composerTools.append(badge); }
+      badge.textContent = `Attached: ${file.name} ×`;
+      badge.title = 'Click to remove attachment';
+      badge.style.cursor = 'pointer';
+      badge.addEventListener('click', clearAttachment, { once: true });
+    } catch { showToast('Could not read that file.'); }
+  });
+  if (attachButton) {
+    attachButton.removeAttribute('title');
+    attachButton.addEventListener('click', () => picker.click());
+  }
+
+  if (toolsButton) {
+    toolsButton.removeAttribute('title');
+    const menu = document.createElement('div');
+    menu.className = 'mosaic-tools-menu hidden';
+    menu.setAttribute('role', 'group');
+    menu.innerHTML = '<strong>Response tools</strong><label><input type="checkbox" data-tool="steps"> Explain step by step</label><label><input type="checkbox" data-tool="concise"> Keep answers concise</label>';
+    composerTools.append(menu);
+    toolsButton.setAttribute('aria-expanded', 'false');
+    toolsButton.addEventListener('click', event => {
+      event.stopPropagation();
+      menu.classList.toggle('hidden');
+      toolsButton.setAttribute('aria-expanded', String(!menu.classList.contains('hidden')));
+    });
+    menu.addEventListener('click', event => event.stopPropagation());
+    menu.querySelectorAll('[data-tool]').forEach(checkbox => checkbox.addEventListener('change', () => { state.tools[checkbox.dataset.tool] = checkbox.checked; }));
+    document.addEventListener('click', event => {
+      if (!menu.contains(event.target) && !toolsButton.contains(event.target)) {
+        menu.classList.add('hidden');
+        toolsButton.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+}
+
 form.addEventListener('submit', event => {
   event.preventDefault();
   const text = input.value.trim();
-  if (!text || state.sending) return;
+  if ((!text && !state.attachment) || state.sending) return;
   input.value = '';
   resizeInput();
-  sendMessage(text);
+  sendMessage(text || `Please review the attached file: ${state.attachment?.name || ''}`);
 });
 input.addEventListener('input', resizeInput);
 input.addEventListener('keydown', event => {
@@ -245,7 +350,6 @@ $('.search-history').addEventListener('click', () => {
   if (query === null) return;
   const matches = state.conversations.filter(chat => chat.title.toLowerCase().includes(query.toLowerCase()));
   if (!matches.length) { showToast('No matching saved conversations.'); return; }
-  renderHistory();
   openConversation(matches[0].id);
 });
 document.addEventListener('keydown', event => {
@@ -253,5 +357,6 @@ document.addEventListener('keydown', event => {
   if (event.key === 'Escape') modelPopover.classList.add('hidden');
 });
 
+setupComposerTools();
 loadSaved();
 loadModels();
